@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+    <meta charset="utf-8">
+    <head>
+        <title>Snake</title>
+    </head>
+    <body>
+        <canvas id="myCanvas" width="1" height="1" style="border: 1px solid #d3d3d3"></canvas>
+		<script src="/socket.io/socket.io.js"></script>
+        <script>
+			// 建立连接。
+			var socket = io();
+			var W = 120, H = 40; // 1280x720 screen OK
+			const MAP_FOOD = 240;
+			socket.on('game_start', function(msg) {
+				if(msg == "haha") {
+					console.log("Server says I can start game.");
+					beginGame();
+				}
+			});
+			socket.on('game_conf', function(x) {
+				this.W = x.W;
+				this.H = x.H;
+				var c = document.getElementById("myCanvas");
+				c.width = x.W * 10; c.height = x.H * 10;
+				map0 = new Uint8Array(x.map0);
+				console.log('W=' + x.W + ", H=" + x.H + ", received map from server.");
+			});
+			socket.on('dummy', function(x) {
+				x = new Uint8Array(x);
+				console.log("Received an Uint8Array of length " + x.length);
+			});
+
+            var ctx = document.getElementById('myCanvas').getContext('2d');
+			var map0 = undefined; //new Uint8Array(W*H);
+			var DX = [0, 0, 1,-1];
+			var DY = [-1,1, 0, 0];
+
+			// Snake Status.
+			const SNAKE_NORMAL = 0;
+			const SNAKE_DYING  = 1;
+
+			// Game Status.
+			const GAME_RUNNING = 0;
+			const GAME_PAUSED  = 999;
+			var game_state = GAME_RUNNING;
+			var game_interval_id = -1;
+
+			var Snake = function() {
+				this.x = 10;
+				this.y = 9;
+				this.dir = 1;
+				this.len = 2;
+				this.alive = true;
+				this.history = []; // history[0] is current, history[history.length - 1] is oldest.
+				this.init = function() {
+					var x = this.x, y = this.y, idx=0;
+					for(var i=0; i<this.len; i++) {
+						map0[y*W+x] = 1;
+						this.history[this.len-1-i] = [x, y];
+						x = x - DX[this.dir]; y = y - DY[this.dir];
+					}
+				}
+				this.advance = function() {
+					var next_x = this.x + DX[this.dir];
+					var next_y = this.y + DY[this.dir];
+
+					// Wraparound.
+					if(next_x >= W) next_x = 0;
+					else if(next_x < 0) next_x = W-1;
+					if(next_y >= H) next_y = 0;
+					else if(next_y < 0) next_y = H-1;
+
+					var is_food = false;
+					if(map0[next_x + next_y*W] == MAP_FOOD) {
+						is_food = true;
+					} else if(map0[next_x + next_y*W] != 0) {
+						this.alive = false;
+					}
+
+					if(this.alive) {
+						if(!is_food) {
+							var past = this.history.shift();
+							ctx.clearRect(past[0]*10, past[1]*10, 10, 10);
+							map0[past[0]+past[1]*W] = 0;
+						} else {
+//							spawnNewFood(1);
+						}
+
+						this.history.push([next_x, next_y]);
+						ctx.fillStyle = '#FF3333';
+						ctx.fillRect(next_x*10, next_y*10, 10, 10);
+						map0[next_x + next_y*W] = 1;
+						this.x = next_x; this.y = next_y;
+					}
+				}
+				this.changeDir = function(d) {
+					if(this.dir==1 && d==0) return;
+					if(this.dir==0 && d==1) return;
+					if(this.dir==2 && d==3) return;
+					if(this.dir==3 && d==2) return;
+					this.dir = d;
+				}
+			}
+
+			document.onclick = function(event) { 
+				advanceWorld();
+			}
+
+			// 加入键盘事件， 用方向键控制蛇前进方向
+			var KeyMap = new Object();
+			KeyMap[37] = 3;
+			KeyMap[38] = 0;
+			KeyMap[39] = 2;
+			KeyMap[40] = 1;
+			document.onkeydown = function (event) {
+				if(event.keyCode >= 37 && event.keyCode <= 40) {
+					s0.changeDir(KeyMap[event.keyCode]);
+				}
+				if(event.keyCode == 80) { // Pause
+					if(game_state == GAME_RUNNING) {
+						game_state = GAME_PAUSED;
+						clearInterval(game_interval_id);
+					} else if(game_state == GAME_PAUSED) {
+						game_state = GAME_RUNNING;
+						game_interval_id = setInterval(advanceWorld, 100);
+					}
+				}
+			}
+
+			// 判断指定位置是否与蛇重叠
+			function check (e, j) {
+				for (var i =0; i < r.length; i++) {
+					if (j != i && r[i].x == e.x && r[i].y == e.y) {
+						return true;
+					}
+					return false;
+				}
+			}
+
+			var s0 = new Snake();
+
+			function redrawAll() {
+				for(var x = 0; x < W; x++) {
+					for(var y = 0; y < H; y++) {
+						var dx = 10*x, dy = 10*y;
+						switch(map0[y*W+x]) {
+							case 1: {
+								ctx.fillStyle = "#FF3333";
+								ctx.fillRect(dx, dy, 10, 10);
+								break;
+							}
+							case MAP_FOOD: {
+								ctx.fillStyle = "#3333FF";
+								ctx.fillRect(dx, dy, 10, 10);
+								break;
+							}
+							default: break;
+						}
+					}
+				}
+			}
+
+
+			function advanceWorld() {
+				s0.advance();
+			}
+
+			function beginGame () {
+				console.log("beginGame() called.");
+				s0.init();
+//				spawnNewFood(10);
+				redrawAll();
+				game_interval_id = setInterval(advanceWorld, 100);
+			}
+        </script>
+    </body>
+</html>

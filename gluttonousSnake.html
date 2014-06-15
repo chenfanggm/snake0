@@ -7,6 +7,7 @@
     <body>
         <canvas id="myCanvas" width="1" height="1" style="border: 1px solid #d3d3d3"></canvas>
 		<script src="/socket.io/socket.io.js"></script>
+		<script src="/lib/rAF.js"></script>
         <script>
 			// 建立连接。
 			var socket = io();
@@ -26,11 +27,7 @@
 				map0 = new Uint8Array(x.map0);
 				console.log('W=' + x.W + ", H=" + x.H + ", received map from server.");
 			});
-			socket.on('dummy', function(x) {
-				x = new Uint8Array(x);
-				console.log("Received an Uint8Array of length " + x.length);
-			});
-
+			
             var ctx = document.getElementById('myCanvas').getContext('2d');
 			var map0 = undefined; //new Uint8Array(W*H);
 			var DX = [0, 0, 1,-1];
@@ -165,13 +162,29 @@
 			function advanceWorld() {
 				s0.advance();
 			}
+			
+			var fps = 20;
+			var now;
+			var then = Date.now();
+			var interval = 1000/fps;
+			var delta;
 
 			function beginGame () {
 				console.log("beginGame() called.");
 				s0.init();
 //				spawnNewFood(10);
 				redrawAll();
-				game_interval_id = setInterval(advanceWorld, 100);
+//				game_interval_id = setInterval(advanceWorld, 100);
+				// Animate.
+				function update() {
+					setTimeout(function() {
+					requestID = requestAnimationFrame(update);
+				 	advanceWorld();
+//				  	cancelAnimationFrame(requestID);
+					}, interval);
+				}
+				// start the loop
+				requestAnimationFrame(update);
 			}
         </script>
     </body>

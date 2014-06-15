@@ -1,6 +1,9 @@
-var app = require('express')();
+var express = require('express');
+var app = express();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
+var path = require('path');
+
 const W = 120, H = 40, MAP_FOOD = 240;;
 var map0 = new Uint8Array(W*H);
 var game_conf = function() {
@@ -24,6 +27,9 @@ function spawnNewFood(num) {
 
 app.get('/', function(req, res){
 	res.sendfile("./gluttonousSnake.html");
+});
+app.get('/lib/rAF.js', function (req, res) {
+    res.sendfile(__dirname + '/lib/rAF.js');
 });
 
 io.on('connection', function(socket){
